@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.3"
+          cache: false
+
+      - name: Validate spec structure
+        run: bash scripts/validate-spec.sh
+
+      - name: Lint repo scripts and workflows
+        env:
+          # Keep in sync with ACTIONLINT_VERSION in docker/dev/Dockerfile.
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" | grep 'linux_amd64.tar.gz$' | sha256sum -c -
+          tar -xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
+          mv actionlint /usr/local/bin/
+          bash scripts/lint-repo.sh
+
+      # Dormant until examples/*/scripts/verify.sh exists (delivered by the
+      # first SDLC change). CI runs the SAME gate as the agent loop and
+      # pre-commit — full mode, never a rewritten variant.
+      - name: Run project verification gates
+        run: bash scripts/verify-all.sh

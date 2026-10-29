@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Pre-commit gate: repo lint + every project's verification gate (quick).
+# Humans may override the main-branch block with MAIN_ALLOW=1; local merges
+# are unaffected (they run the pre-merge-commit hook, not this one).
+#
+# Activate once per clone, AFTER the initial bootstrap commit:
+#   git config core.hooksPath .githooks
+set -euo pipefail
+
+branch="$(git branch --show-current)"
+if [ "${MAIN_ALLOW:-}" != "1" ] && [ "$branch" = "main" ]; then
+  echo "BLOCKED: direct commits to main are not allowed (merges only)." >&2
+  echo "Use a feature branch, or set MAIN_ALLOW=1 if you are a human making an exception." >&2
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+bash scripts/lint-repo.sh
+VERIFY_QUICK=1 bash scripts/verify-all.sh

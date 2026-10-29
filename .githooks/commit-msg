@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Enforces Conventional Commits on every commit message:
+#   <type>(<scope>)?!?: <subject>
+# types: feat fix test docs chore refactor perf build ci style
+#
+# Merge commits additionally require a receipt body line:
+#   Gate: <slug> <evidence-kind> green @ <short-sha> (<date>)
+# The evidence kind names what actually ran (verify.sh, manual review +
+# hooks, ...) and is never overstated.
+#
+# MAIN_ALLOW=1 skips this check (human exception hatch).
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "usage: commit-msg <commit-message-file>" >&2
+  exit 1
+fi
+
+commit_file="$1"
+
+if [ "${MAIN_ALLOW:-}" = "1" ]; then
+  exit 0
+fi
+
+first="$(head -n1 "$commit_file")"
+
+pattern='^(feat|fix|test|docs|chore|refactor|perf|build|ci|style)(\([a-z0-9/-]+\))?(!)?: .+'
+receipt='^Gate: [a-z0-9][a-z0-9-]* .+ green @ [0-9a-f]{7,40} \(.+\)$'
+
+if printf '%s\n' "$first" | grep -qE "$pattern"; then
+  exit 0
+fi
+
+if printf '%s\n' "$first" | grep -qE '^Merge '; then
+  if grep -qE "$receipt" "$commit_file"; then
+    exit 0
+  fi
+  echo "BLOCKED: merge commit is missing its receipt." >&2
+  echo "Add a body line:  Gate: <slug> <evidence-kind> green @ <short-sha> (<date>)" >&2
+  exit 1
+fi
+
+echo "BLOCKED: commit message must follow Conventional Commits:" >&2
+echo "  <type>(<scope>)?!?: <subject>" >&2
+echo "  types: feat fix test docs chore refactor perf build ci style" >&2
+echo "  got:   ${first}" >&2
+exit 1

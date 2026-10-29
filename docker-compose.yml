@@ -1,0 +1,13 @@
+services:
+  dev:
+    container_name: agentic_sdlc_dev
+    build:
+      context: docker/dev
+    platform: linux/amd64
+    volumes:
+      - '.:/usr/code'
+    working_dir: '/usr/code'
+    command: [ '/bin/sh', '-c', 'sleep infinity' ]
+    env_file:
+      - .env
+    restart: always
